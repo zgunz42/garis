@@ -15,5 +15,8 @@ def make_predictions():
     plt.title(f"True label: {y_test[0]}, Predicted: {np.argmax(predictions[0])}")
     plt.show()
 
+    print("Predictions made successfully.")
+    print(f'True label: {y_test[0]}, Predicted: {np.argmax(predictions[0])}')
+
 if __name__ == "__main__":
     make_predictions()

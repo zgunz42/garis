@@ -25,29 +25,48 @@ def preprocess_image(image: Image.Image) -> np.ndarray:
     Returns:
         numpy.ndarray: The preprocessed image for model prediction.
     """
-    # handle png images
-    if image.mode == 'P':
-        image = image.convert('RGB')
-        
-
-    # Convert to grayscale 
-    image = ImageOps.grayscale(image)
+    # Convert image to RGBA (just in case it is not already in this mode)
+    image = image.convert('RGBA')
     
-    # Convert to 28x28
-    image = image.resize((28, 28), Image.LANCZOS)
-
-    # and resize in one step
-    image = np.array(image)
+    # Separate the alpha channel
+    r, g, b, a = image.split()
+    
+    # Create a new image with a white background
+    white_bg = Image.new('RGBA', image.size, (255, 255, 255, 255))
+    white_bg.paste(image, mask=a)
+    
+    # Convert the image to grayscale
+    image = white_bg.convert('L')
     
     # Invert the colors (make it black on white)
-    image = 255 - image
+    image = ImageOps.invert(image)
     
-    # Normalize the image pixel values
-    image = image.astype(np.float32) / 255.0
+    # Trim empty space around the digit
+    bbox = image.getbbox()
+    image = image.crop(bbox)
+    
+    # Add padding (5% of the maximum dimension)
+    max_dim = max(image.size)
+    padding = int(max_dim * 0.15)
+    image = ImageOps.expand(image, border=padding, fill=0)
+    
+    # Resize the image to 28x28 pixels
+    image = image.resize((28, 28))
+    
+    # Convert to numpy array and normalize
+    image = np.array(image) / 255.0
     
     # Expand dimensions to match the model's expected input shape
     image = np.expand_dims(image, axis=0)
+    image = np.expand_dims(image, axis=-1)
 
+    # invert the colors black to white and white to black
+    # image = 1 - image
+    
+    # Save the preprocessed image for debugging
+    debug_image = Image.fromarray((image.squeeze() * 255).astype(np.uint8))
+    debug_image.save('../data/debug/preprocessed_debug.png')
+    
     return image
 
 def save_image_and_data(image, processed_image, expected_output, predicted_output):
@@ -75,6 +94,10 @@ def save_image_and_data(image, processed_image, expected_output, predicted_outpu
     
     # Save the image to file
     prcImg.save(proccessed_image_filename)
+
+    # check expected output not empty
+    if not expected_output:
+        return
     
     # Save data to CSV
     csv_filename = f'{raw_data_dir}data.csv'
